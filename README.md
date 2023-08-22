@@ -1,6 +1,7 @@
 # magpie3-interpretations-fc
 
-This is a sample experiment using magpie.
+Magpie forced-choice experiment on interpretation of different implicatures.
+
 ### Setup
 
 First, set up the project with `npm install`
@@ -24,4 +25,3 @@ $ npm update magpie-base
 ```
 
 Read more on [maintaining npm dependencies](https://www.carlrippon.com/upgrading-npm-dependencies/).
-
