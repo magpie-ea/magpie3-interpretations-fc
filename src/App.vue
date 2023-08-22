@@ -18,7 +18,7 @@
           <p>Please read the following conversation.</p>
 
           <p> 
-            {{ trial.context.replace(trial.speaker.join(" replies:"), "\n".join(trial.speaker.join(" replies:"))) }} 
+            {{ trial.context.replace(trial.speaker.concat(" replies:"), "\n".concat(trial.speaker.concat(" replies:"))) }} 
             <strong>'{{ trial.trigger.charAt(0).toUpperCase() + trial.trigger.slice(1)}}'<br/>
              <br/> 
             </strong>
