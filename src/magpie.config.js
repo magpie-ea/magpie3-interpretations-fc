@@ -6,6 +6,6 @@ export default {
   completionUrl: 'https://...',
   contactEmail: 'polina.tsvilodub@uni-tuebingen.de',
   // Either 'debug', 'directLink' or 'prolific'
-  mode: 'debug',
+  mode: 'directLink',
   language: 'en'
 };
