@@ -18,12 +18,13 @@
           <p>Please read the following conversation.</p>
 
           <p> 
-            {{ trial.context }} <strong>'{{ trial.trigger}}'<br/>
+            {{ trial.context.replace(trial.speaker.join(" replies:"), "\n".join(trial.speaker.join(" replies:"))) }} 
+            <strong>'{{ trial.trigger.charAt(0).toUpperCase() + trial.trigger.slice(1)}}'<br/>
              <br/> 
             </strong>
           </p>
 
-          <p>Which of the following four interpretations could {{trial.speaker}} be trying to convey? Please select one option.</p>
+          <p>Which of the following four sentences best expresses what {{trial.speaker}} meant with their utterance? Please select one option.</p>
           <ForcedChoiceInput
               :response.sync= "$magpie.measurements.response"
               :options="trial.options_list"
