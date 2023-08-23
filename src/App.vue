@@ -15,20 +15,19 @@
       <Screen>
 
         <Slide>
-          <p>Please read the following conversation.</p>
+          <p style="color:#A9A9A9">Please read the following conversation.</p>
 
           <p> 
-            {{ trial.context.replace(trial.speaker.concat(" replies:"), "\n".concat(trial.speaker.concat(" replies:"))) }} 
+            {{ trial.context.replace(trial.speaker.concat(" replies:"), "\n\n".concat(trial.speaker.concat(" replies:"))) }} 
             <strong>'{{ trial.trigger.charAt(0).toUpperCase() + trial.trigger.slice(1)}}'<br/>
              <br/> 
             </strong>
           </p>
 
-          <p>Which of the following four sentences best expresses what {{trial.speaker}} meant with their utterance? Please select one option.</p>
-          <ForcedChoiceInput
-              :response.sync= "$magpie.measurements.response"
-              :options="trial.options_list"
-              @update:response="$magpie.saveAndNextScreen();"/>
+          <MultipleChoiceScreen
+            :question="trial.fc_question"
+            :options="trial.options_list"
+          />
 
           <Record :data="{
           'condition': conditions[i],
@@ -89,6 +88,7 @@ trialData.forEach(t => {
       'distractor_2_prejacent'
     ]);
     t.options_list = t.options_order.map(x => t[x]);
+    t.fc_question = "Which of the following four sentences best expresses what " + t.speaker + " meant with their utterance?";
 })
 
 console.log(trialData);
