@@ -1,0 +1,148 @@
+---
+title: "SAGE Implicatures human experiment"
+author: "PT"
+date: "2023-08-23"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(tidyboot)
+library(cspplot)
+library(brms)
+```
+
+```{r}
+d <- read_csv("../data/results_8_sage-interpretations-fc-350-anonymized.csv")
+# remove prolific IDs etc
+d <- d %>% select(-prolific_pid, -prolific_session_id, -prolific_study_id)
+# d %>% write_csv("results_8_sage-interpretations-fc-350-anonymized.csv")
+
+head(d)  
+nrow(d)
+
+# manually inspect the favorite animal responses
+d %>% filter(is.na(condition)) %>% pull(response) %>% unique()
+```
+
+# preprocessing & exclusions
+
+Due to a bug, the responses require a step of correction wherein responses to the vignette about Jesse need to be corrected. Specifically, the duplicated response option for the target and the competitor have to be removed, otherwise the selected option assignment does not work. This is done by removing the competitor option (too little and baseline conditions, item_id 22). This is done for columns options_list and options_order.
+
+Exclude participants who didn't answer with an animal from the list.
+```{r}
+d_cleaned_ids <- d %>% filter((tolower(response) %in% c("koala bear", "kola", "kola bear", "kuala bear", "koala beat", "koala", "koala-bear", "kowala bear", "sloth", "sloths", "ant-eater", "ant eater", "anteater")) ) %>% pull(submission_id)
+d_cleaned <- d %>% filter(submission_id %in% d_cleaned_ids)
+# retrieve number of subjects from whom we keep the data
+d_cleaned_ids %>% unique() %>% length()
+
+nrow(d_cleaned)
+# TODO potentially exclude based on language
+
+d_main <- d_cleaned %>% filter(!is.na(condition))
+```
+
+Apply processing to get which response option was actually chosen: 
+```{r}
+d_main <- d_main %>% rowwise() %>%
+  mutate(
+    split_order = str_split(options_order, fixed("|")),
+    split_options = str_split(options_list, fixed("|"))
+  ) %>% rowwise() %>% mutate(
+   chosen_option_ind = which(tolower(split_options) == tolower(response)),
+   chosen_option = split_order[chosen_option_ind]
+  )
+#d_main %>% write_csv("../data/results_8_sage-interpretations-fc-350-cleaned.csv")
+```
+
+# descriptive stats with relevant grouping
+
+```{r}
+d_main %>% count(condition)
+d_main %>% count(condition, chosen_option)
+d_main %>% group_by(item_id, condition) %>% count()
+
+# compute target proportion
+d_summary <- d_main %>% 
+  mutate(resp_cat_binary = ifelse(chosen_option == "target_prejacent", 1 , 0)) %>%
+  group_by(condition) %>%
+  summarise(target_prop = mean(resp_cat_binary))
+
+d_summary
+```
+
+# plots
+
+```{r}
+# compute bootstrapped CIs
+d_summary_boot <- d_main %>% 
+  mutate(resp_cat_binary = ifelse(chosen_option == "target_prejacent", 1 , 0)) %>% group_by(condition) %>%
+  tidyboot_mean(column = resp_cat_binary)
+
+# TODO write out preprocessed data
+# d_summary_boot %>% write_csv("../data/results_sage-interpretations-fc_350_summary.csv")
+
+d_summary_boot %>%
+  ggplot(., aes(x = condition, y = mean, fill = condition, ymin=ci_lower, ymax=ci_upper)) +
+  geom_col() +
+  geom_hline(yintercept=0.25) +
+  geom_errorbar(width=0.2) +
+  theme_csp()
+```
+
+A supplementary materials plot like QA CogSci with a break down of response types in the column
+```{r}
+d_main_byCategory_summary <- d_main %>% group_by(condition) %>%
+  mutate(n = n()) %>%
+  group_by(condition, chosen_option) %>%
+  mutate(num_chosen_option = n()) %>%
+  summarize(option_prop = num_chosen_option / n) %>% unique()
+
+d_main_byCategory_summary %>%
+  mutate(chosen_option = factor(chosen_option, levels = c("target_prejacent", "competitor_prejacent", "distractor_1_prejacent", "distractor_2_prejacent"), labels = c("target", "competitor", "distractor_1", "distractor_2"))) %>%
+  ggplot(., aes(x = condition, y = option_prop, fill = chosen_option)) +
+  geom_col() +
+  theme_csp() +
+  ylab("proportion of chosen interpretations") 
+```
+
+# stats
+
+Run a multinomial regression: response type against condition (optionally, if it converges: with by-item random intercepts).
+```{r}
+options(mc.cores = parallel::detectCores())
+
+d_main_fct <- d_main %>% mutate(
+  chosen_option = factor(chosen_option, levels = c("target_prejacent", "competitor_prejacent", "distractor_1_prejacent", "distractor_2_prejacent")),
+  condition = factor(condition, levels = c("baseline", "too_little", "too_much", "marked", "irrelevant"))
+)
+contrasts(d_main_fct$chosen_option)
+contrasts(d_main_fct$condition)
+
+model_multinom <- brm(
+  chosen_option ~ condition, #+ (1 | item_id), 
+  data = d_main_fct, 
+  family = "categorical",
+  iter = 3000,
+  cores = 4,
+)
+summary(model_multinom)
+```
+
+# exploratory
+
+As a sanity check, we exclude vignette 22 from the analysis to see if there is any qualitative difference. Based on visual comparison of the plots, there seems to be no difference whatsoever. 
+```{r}
+# compute bootstrapped CIs
+d_summary_boot_wo22 <- d_main %>% 
+  filter(item_id != 22) %>%
+  mutate(resp_cat_binary = ifelse(chosen_option == "target_prejacent", 1 , 0)) %>% group_by(condition) %>%
+  tidyboot_mean(column = resp_cat_binary)
+
+d_summary_boot_wo22 %>%
+  ggplot(., aes(x = condition, y = mean, fill = condition, ymin=ci_lower, ymax=ci_upper)) +
+  geom_col() +
+  geom_hline(yintercept=0.25) +
+  geom_errorbar(width=0.2) +
+  theme_csp()
+```
